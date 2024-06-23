@@ -1,0 +1,7 @@
+{
+  "name": "iotDetector",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}

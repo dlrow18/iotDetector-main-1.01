@@ -1,0 +1,11 @@
+/* GoogleMap.css */
+.map-container {
+    position: relative;
+    width: 100%;
+    height: 90vh; /* Full screen height */
+  }
+  
+  capacitor-google-map {
+    width: 100%;
+    height: 100%;
+  }

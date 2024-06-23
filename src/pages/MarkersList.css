@@ -1,0 +1,20 @@
+/* src/pages/MarkersList.css */
+.markers-list {
+    padding: 20px;
+  }
+  
+  .marker-item {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+  }
+  
+  .marker-item h2 {
+    margin-top: 0;
+  }
+  
+  .marker-item p {
+    margin: 5px 0;
+  }
+  
