@@ -21,7 +21,7 @@ interface Marker {
 }
 
 const Map: React.FC = () => {
-  const apiKey = "AIzaSyChpLVbwq3-Cqp5DvXqtkAcpyyubCNFNUg"; 
+  const apiKey = "entert your apiKey"; 
 
   const mapRef = useRef<HTMLElement>(null);
   const [selectedMarker, setSelectedMarker] = useState<Marker | null>(null);
