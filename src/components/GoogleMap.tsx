@@ -6,11 +6,18 @@ import { Haptics } from '@capacitor/haptics';
 import { IonButton, IonIcon, IonInput } from '@ionic/react';
 import { markers } from '../data/index'; 
 import MarkerInfoWindow from './MarkerInfoWindow';
-import { compassOutline, chevronForwardOutline } from 'ionicons/icons';
+import { compassOutline, chevronForwardOutline,arrowUpOutline, arrowDownOutline, arrowBackOutline, arrowForwardOutline, reloadOutline } from 'ionicons/icons';
 import './GoogleMap.css';
 import { ToastContainer, toast, Slide } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './CustomToast.css';
+import {  cameraOutline,
+  micOutline,
+  fingerPrintOutline,
+  scanCircleOutline,
+  menuOutline,
+  manOutline,
+} from "ionicons/icons";
 
 interface Marker {
   lat: number;
@@ -20,13 +27,26 @@ interface Marker {
   level: string;
 }
 
-const Map: React.FC = () => {
-  const apiKey = "entert your apiKey"; 
+const deviceTypes = [
+  { type: "camera", icon: cameraOutline},
+  { type: "microphone", icon: micOutline},
+  { type: "face", icon: scanCircleOutline },
+  { type: "biometric", icon: fingerPrintOutline },
+  { type: "other", icon: menuOutline }
+];
 
+const Map: React.FC = () => {
+  const apiKey = "Your_GoogleMap_API_Key"; 
   const mapRef = useRef<HTMLElement>(null);
   const [selectedMarker, setSelectedMarker] = useState<Marker | null>(null);
   const [map, setMap] = useState<GoogleMap | null>(null);
-  const [address, setAddress] = useState(''); 
+  const [address, setAddress] = useState('');
+  const [figurePosition, setFigurePosition] = useState({ lat: 52.517991150833616, lng: 13.393885758339065 });
+  // const [figureMarker, setFigureMarker] = useState<Marker | null>(null);
+  const [markerIds, setMarkerIds] = useState<string[]>([]);
+  const [isFilteredView, setIsFilteredView] = useState(false);
+  const [filteredMarkers, setFilteredMarkers] = useState<Marker[]>([]);
+
 
   const [presentMarkerInfo, dismissMarkerInfo] = useIonModal(MarkerInfoWindow, {
     marker: selectedMarker,
@@ -59,31 +79,59 @@ const Map: React.FC = () => {
         config: mapConfig
       });
 
-      // Add existing markers to the map
-      markers.forEach(marker => {
-        newMap.addMarker({
-          coordinate: {
-            lat: marker.lat,
-            lng: marker.lng
-          },
-          title: marker.address,
-          snippet: `Type: ${marker.type}, Level: ${marker.level}`
-        });
-      });
+      loadMarkers(newMap, markers);
 
       newMap.setOnMarkerClickListener((marker) => {
         const selected = markers.find(m => m.lat === marker.latitude && m.lng === marker.longitude);
         if (selected) {
           setSelectedMarker(selected);
+          centerMapOnClickedMarker(selected.lat, selected.lng);
           presentMarkerInfo(modalOptions);
           handleRiskLevel(selected.level, selected);
         }
       });
+      
+      /*
+      // Add figure marker
+      const figure = newMap.addMarker({
+        coordinate: figurePosition,
+        title: 'Figure',
+        iconUrl: manOutline,
+        iconSize: new google.maps.Size(60, 60),
+        iconAnchor: new google.maps.Point(figurePosition.lat, figurePosition.lng),
+      });
+      */
 
       setMap(newMap);
     } catch (err) {
       console.error("Error creating map:", err);
     }
+  };
+
+  const loadMarkers = async (map: GoogleMap, markers: Marker[]) => {
+    // Remove existing markers
+    await removeAllMarkers(map);
+
+    const newMarkerIds = [];
+    for (const marker of markers) {
+      const addedMarker = await map.addMarker({
+        coordinate: {
+          lat: marker.lat,
+          lng: marker.lng
+        },
+        title: marker.address,
+        snippet: `Type: ${marker.type}, Level: ${marker.level}`
+      });
+      newMarkerIds.push(addedMarker);
+    }
+    setMarkerIds(newMarkerIds);
+  };
+
+  const removeAllMarkers = async (map: GoogleMap) => {
+    for (const id of markerIds) {
+      await map.removeMarker(id);
+    }
+    setMarkerIds([]);
   };
 
   const handleRiskLevel = (level: string, marker: Marker) => {
@@ -154,16 +202,29 @@ const Map: React.FC = () => {
     }
   };
 
+  const centerMapOnClickedMarker = async (lat: number, lng: number) => {
+    if (map) {
+      await map.setCamera({
+        coordinate: {
+          lat: lat,
+          lng: lng
+        },
+        zoom: 16
+      });
+    }
+  };
+
   const addMarker = async (lat: number, lng: number) => {
     if (map) {
-      await map.addMarker({
+      const addedMarker = await map.addMarker({
         coordinate: {
           lat,
           lng
         },
         title: 'New Marker',
-        snippet: 'New marker added by search'
+        snippet: 'New marker added by search',
       });
+      setMarkerIds((prev) => [...prev, addedMarker]);
 
       const distances = markers.map(marker => {
         const distance = calculateDistance(lat, lng, marker.lat, marker.lng);
@@ -219,10 +280,99 @@ const Map: React.FC = () => {
     }
   };
 
+  /*
+  const moveFigure = async (direction: string) => {
+    const stepSize = 0.1; // Adjust the step size as needed
+    let { lat, lng } = figurePosition;
+
+    switch (direction) {
+      case 'up':
+        lat += stepSize;
+        break;
+      case 'down':
+        lat -= stepSize;
+        break;
+      case 'left':
+        lng -= stepSize;
+        break;
+      case 'right':
+        lng += stepSize;
+        break;
+    }
+
+    setFigurePosition({ lat, lng });
+
+    if (map) {
+      const figure = await map.addMarker({
+        coordinate: { lat, lng },
+        title: 'Figure',
+        iconUrl: manOutline,
+        iconSize: new google.maps.Size(60, 60),
+        iconAnchor: new google.maps.Point(figurePosition.lat, figurePosition.lng),
+      });
+
+      // Check distance to existing markers
+      markers.forEach(marker => {
+        const distance = calculateDistance(lat, lng, marker.lat, marker.lng);
+        if (distance < 0.5) {
+          handleRiskLevel(marker.level, marker);
+        }
+      });
+    }
+  };
+  */
+
+  const filterMarkers = (type: string) => {
+    const filtered = markers.filter(marker => marker.type === type);
+    setFilteredMarkers(filtered);
+    setIsFilteredView(true);
+    loadMarkers(map!, filtered); 
+  };
+
   useIonViewWillEnter(() => {
     createMap();
   });
 
+  const BottomSheet = () => (
+    <div className="bottom-sheet">
+      {isFilteredView ? (
+        <div>
+          <IonButton onClick={() => setIsFilteredView(false)} style={{ marginBottom: "10px" }}>
+            <IonIcon icon={arrowBackOutline} />
+          </IonButton>
+          <div style={{ marginTop: "20px" }}>
+            <h3>Filtered Devices</h3>
+            <ul>
+              {filteredMarkers.map((marker) => (
+                <li key={marker.address}>
+                Location: {marker.address}
+                <br />
+                Risk Level: {marker.level}
+              </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : (
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "repeat(3, 1fr)", 
+          gridTemplateRows: "repeat(2, auto)", 
+          gap: "10px", 
+          justifyItems: "center"
+        }}>
+          {deviceTypes.map((device) => (
+            <IonButton key={device.type} onClick={() => filterMarkers(device.type)}>
+              <IonIcon icon={device.icon} />
+            </IonButton>
+          ))}
+          <IonButton onClick={() => loadMarkers(map!, markers)}>
+            <IonIcon icon={reloadOutline} />
+          </IonButton>
+        </div>
+      )}
+    </div>
+  );
   return (
     <div className="map-container">
       <capacitor-google-map
@@ -230,7 +380,7 @@ const Map: React.FC = () => {
         style={{
             display: 'inline-block',
             width: "100%",
-            height: "100%"
+            height: "90%"
           }}
       ></capacitor-google-map>
       <div style={{ display: 'flex', justifyContent: 'center', position: 'absolute', top: '10px', width: '100%', zIndex: 10 }}>
@@ -250,7 +400,18 @@ const Map: React.FC = () => {
       >
         <IonIcon icon={compassOutline} />
       </IonButton>
+
+      {/*
+      <div style={{ position: 'absolute', bottom: '100px', right: '10px', zIndex: 10 }}>
+        <IonButton onClick={() => moveFigure('up')}><IonIcon icon={arrowUpOutline} /></IonButton>
+        <IonButton onClick={() => moveFigure('down')}><IonIcon icon={arrowDownOutline} /></IonButton>
+        <IonButton onClick={() => moveFigure('left')}><IonIcon icon={arrowBackOutline} /></IonButton>
+        <IonButton onClick={() => moveFigure('right')}><IonIcon icon={arrowForwardOutline} /></IonButton>
+      </div>
+      */}
+      
       <ToastContainer transition={Slide}/>
+      <BottomSheet />
     </div>
   );
 };
